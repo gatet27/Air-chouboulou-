@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Airchouboulou ✈️</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #b3e5fc;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+    .page {
+      display: none;
+      padding: 40px;
+    }
+
+    .active {
+      display: block;
+    }
+
+    input, button {
+      padding: 10px;
+      margin: 10px;
+      font-size: 16px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      background-color: #0288d1;
+      color: white;
+      border: none;
+    }
+
+    #notification {
+      position: fixed;
+      top: -60px;
+      left: 0;
+      right: 0;
+      background-color: #333;
+      color: white;
+      padding: 15px;
+      transition: top 0.5s;
+      z-index: 1000;
+    }
+
+    .seat-map {
+      display: inline-block;
+      margin-top: 20px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: center;
+      margin: 5px 0;
+    }
+
+    .seat {
+      width: 30px;
+      height: 30px;
+      margin: 3px;
+      background-color: #ddd;
+      border-radius: 5px;
+      cursor: pointer;
+      line-height: 30px;
+      font-size: 12px;
+    }
+
+    .seat.selected {
+      background-color: #4caf50;
+      color: white;
+    }
+
+    .seat.occupied {
+      background-color: #aaa;
+      cursor: not-allowed;
+    }
+
+    #ticket {
+      display: none;
+      background: white;
+      margin: 30px auto;
+      padding: 20px;
+      border: 2px dashed #0288d1;
+      max-width: 500px;
+      text-align: left;
+    }
+
+    .alt-login button {
+      width: 80%;
+      margin-top: 10px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .google { background-color: #db4437; }
+    .apple { background-color: black; }
+    .facebook { background-color: #1877f2; }
+  </style>
+</head>
+<body>
+
+<div id="notification"></div>
+
+<!-- Page 1 : Inscription -->
+<div class="page active" id="pageInscription">
+  <h1>Bienvenue chez Airchouboulou ✈️</h1>
+  <p>Inscris-toi pour commencer ton voyage magique !</p>
+  <input type="email" id="email" placeholder="Adresse e-mail"><br>
+  <input type="text" id="phone" placeholder="Numéro de téléphone"><br>
+  <button onclick="envoyerSMS()">📱 Envoyer un code par SMS</button><br>
+  <div id="codeSection" style="display:none;">
+    <input type="text" id="code" placeholder="Code reçu par SMS"><br>
+    <button onclick="verifierCode()">Valider</button>
+  </div>
+  <div class="alt-login">
+    <p>Ou s'inscrire avec :</p>
+    <button class="google" onclick="connexionSimulee('Google')">Google</button>
+    <button class="apple" onclick="connexionSimulee('Apple')">Apple</button>
+    <button class="facebook" onclick="connexionSimulee('Facebook')">Facebook</button>
+  </div>
+</div>
+
+<!-- Page 2 : Réservation -->
+<div class="page" id="pageReservation">
+  <h2>Réservez votre vol</h2>
+
+  <div class="step active" id="step1">
+    <h3>1. Vol</h3>
+    <input type="text" id="depart" placeholder="Départ">
+    <input type="text" id="destination" placeholder="Destination">
+    <input type="date" id="date"><br>
+    <button onclick="nextStep(2)">Suivant</button>
+  </div>
+
+  <div class="step" id="step2" style="display:none;">
+    <h3>2. Passagers</h3>
+    Adultes : <input type="number" id="adultes" value="1" min="1"><br>
+    Enfants : <input type="number" id="enfants" value="0" min="0"><br>
+    Bébés : <input type="number" id="bebes" value="0" min="0"><br>
+    <button onclick="nextStep(3)">Suivant</button>
+  </div>
+
+  <div class="step" id="step3" style="display:none;">
+    <h3>3. Options</h3>
+    <label><input type="checkbox" id="bagage"> Bagage supplémentaire</label><br>
+    <label><input type="checkbox" id="hublot"> Siège hublot</label><br>
+    <label><input type="checkbox" id="repas"> Repas végétarien</label><br>
+    <button onclick="nextStep(4)">Suivant</button>
+  </div>
+
+  <div class="step" id="step4" style="display:none;">
+    <h3>4. Vos infos</h3>
+    <input type="text" id="nom" placeholder="Nom complet"><br>
+    <input type="email" id="email2" placeholder="Email"><br>
+    <input type="text" id="passeport" placeholder="Passeport"><br>
+    <button onclick="nextStep(5)">Suivant</button>
+  </div>
+
+  <div class="step" id="step5" style="display:none;">
+    <h3>5. Choix du siège</h3>
+    <div class="seat-map" id="seatMap"></div>
+    <button onclick="nextStep(6)">Suivant</button>
+  </div>
+
+  <div class="step" id="step6" style="display:none;">
+    <h3>6. Paiement</h3>
+    <input type="text" placeholder="Carte bancaire"><br>
+    <input type="text" placeholder="Date d’expiration"><br>
+    <input type="text" placeholder="CVV"><br>
+    <button onclick="afficherBillet()">Afficher le billet</button>
+  </div>
+
+  <div id="ticket"></div>
+</div>
+
+<script>
+  let codeSecret = "";
+  let siegeSelectionne = "";
+
+  function envoyerSMS() {
+    const email = document.getElementById("email").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    if (!email || !phone) {
+      alert("Remplis ton e-mail et ton numéro !");
+      return;
+    }
+    codeSecret = Math.floor(100000 + Math.random() * 900000).toString();
+    const notif = document.getElementById("notification");
+    notif.innerText = "📲 Ton code est " + codeSecret;
+    notif.style.top = "0px";
+    setTimeout(() => notif.style.top = "-60px", 10000);
+    document.getElementById("codeSection").style.display = "block";
+  }
+
+  function verifierCode() {
+    const code = document.getElementById("code").value.trim();
+    if (code === codeSecret) {
+      changerPage("pageReservation");
+    } else {
+      alert("❌ Code incorrect !");
+    }
+  }
+
+  function connexionSimulee(service) {
+    const email = prompt("Connexion à " + service + " : entre ton adresse e-mail");
+    if (email && email.includes("@")) {
+      alert("✅ Connexion réussie via " + service + " !");
+      changerPage("pageReservation");
+    } else {
+      alert("Adresse invalide.");
+    }
+  }
+
+  function changerPage(id) {
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+  }
+
+  function nextStep(num) {
+    document.querySelectorAll(".step").forEach(s => s.style.display = "none");
+    document.getElementById("step" + num).style.display = "block";
+    if (num === 5) genererPlanSieges();
+  }
+
+  function genererPlanSieges() {
+    const seatMap = document.getElementById("seatMap");
+    seatMap.innerHTML = "";
+    const rows = 10;
+    const cols = ['A','B','','C','D','E','F','','G','H'];
+
+    for (let i = 1; i <= rows; i++) {
+      const row = document.createElement("div");
+      row.className = "row";
+      cols.forEach((col, idx) => {
+        if (col === '') {
+          const space = document.createElement("div");
+          space.style.width = "20px";
+          row.appendChild(space);
+        } else {
+          const seat = document.createElement("div");
+          seat.className = "seat";
+          const seatId = i + col;
+          seat.innerText = col;
+          seat.title = seatId;
+          seat.onclick = () => selectSeat(seat, seatId);
+          row.appendChild(seat);
+        }
+      });
+      seatMap.appendChild(row);
+    }
+  }
+
+  function selectSeat(elem, id) {
+    if (elem.classList.contains("occupied")) return;
+    document.querySelectorAll(".seat").forEach(s => s.classList.remove("selected"));
+    elem.classList.add("selected");
+    siegeSelectionne = id;
+  }
+
+  function afficherBillet() {
+    const billet = `
+      <h2>🎫 Billet Airchouboulou</h2>
+      <p><strong>Nom :</strong> ${document.getElementById("nom").value}</p>
+      <p><strong>De :</strong> ${document.getElementById("depart").value}</p>
+      <p><strong>À :</strong> ${document.getElementById("destination").value}</p>
+      <p><strong>Date :</strong> ${document.getElementById("date").value}</p>
+      <p><strong>Siège :</strong> ${siegeSelectionne}</p>
+      <p><strong>Passagers :</strong> ${document.getElementById("adultes").value} adultes, ${document.getElementById("enfants").value} enfants, ${document.getElementById("bebes").value} bébés</p>
+      <p><strong>Options :</strong>
+        ${document.getElementById("bagage").checked ? "Bagage, " : ""}
+        ${document.getElementById("hublot").checked ? "Hublot, " : ""}
+        ${document.getElementById("repas").checked ? "Repas végétarien" : ""}
+      </p>
+      <p><strong>Email :</strong> ${document.getElementById("email2").value}</p>
+      <p><strong>Passeport :</strong> ${document.getElementById("passeport").value}</p>
+      <p>Bon vol avec Airchouboulou 🛫</p>
+    `;
+    document.getElementById("ticket").innerHTML = billet;
+    document.getElementById("ticket").style.display = "block";
+    document.querySelectorAll(".step").forEach(s => s.style.display = "none");
+  }
+</script>
+
+</body>
+</html>
